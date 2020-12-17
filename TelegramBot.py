@@ -1,3 +1,8 @@
+# cd C:\Users\User\PycharmProjects\pythonBOT\venv\Scripts\
+# .\activate
+# cd ..\
+# python.exe bot.py
+
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -63,7 +68,8 @@ def service_markup():
             temporary = ''
         else:
             temporary = service
-    markup.add(InlineKeyboardButton(temporary, callback_data=services[temporary]))
+    if temporary:
+        markup.add(InlineKeyboardButton(temporary, callback_data=services[temporary]))
     return markup
 
 
