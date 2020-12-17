@@ -40,7 +40,8 @@ def barber_markup():
             temporary = ''
         else:
             temporary = barber
-    markup.add(InlineKeyboardButton(temporary, callback_data=barbers[temporary]))
+    if temporary:
+        markup.add(InlineKeyboardButton(temporary, callback_data=barbers[temporary]))
     return markup
 
 
