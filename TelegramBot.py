@@ -73,13 +73,7 @@ def service_markup():
     return markup
 
 
-def date_markup():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 3
-
-
 order = {}
-
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
@@ -91,6 +85,8 @@ def callback_query(call):
         bot.send_message(call.from_user.id, 'Записаться в Barber KPFU')
         bot.send_message(call.from_user.id, 'Выберите сценарий:',
                          reply_markup=appointment_markup())
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
     elif call.data == "cd_exit":
         pass
     elif call.data == "cd_price":
@@ -100,8 +96,13 @@ def callback_query(call):
     elif call.data == "cd_master":
         bot.send_message(call.from_user.id, 'Barber:',
                          reply_markup=barber_markup())
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
     elif call.data == "cd_service":
-        pass
+        bot.send_message(call.from_user.id, f'Услуги: ',
+                         reply_markup=service_markup())
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
     elif call.data == "cd_date":
         pass
     elif call.data in barbers.values():
@@ -109,19 +110,26 @@ def callback_query(call):
         for name, id in barbers.items():
             if call.data in id:
                 barber_name = name
-        bot.send_message(call.from_user.id, f'Услуги ({barber_name})',
-                         reply_markup=service_markup())
+        if not order[call.from_user.id].get('Услуга'):
+            bot.send_message(call.from_user.id, f'Услуги ({barber_name})',
+                             reply_markup=service_markup())
         order[call.from_user.id].setdefault('Мастер')
         order[call.from_user.id]['Мастер'] = call.data
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
     elif call.data in services.values():
         service_name = ''
         for name, id in services.items():
             if call.data in id:
                 service_name = name
-        bot.send_message(call.from_user.id, f'''Вы выбрали - {service_name}
-Стоимость данной услуги составляет - {price_services[service_name]}''', reply_markup=date_markup())
         order[call.from_user.id].setdefault('Услуга')
         order[call.from_user.id]['Услуга'] = call.data
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
+        if not order[call.from_user.id].get('Мастер'):
+            bot.send_message(call.from_user.id, 'Barber:',
+                             reply_markup=barber_markup())
+    print(order)
 
 
 @bot.message_handler(commands=['start'])
@@ -129,5 +137,5 @@ def send_welcome(message):
     bot.send_message(message.from_user.id, 'Чтобы записаться в Barbershop, нажмите кнопку <<Записаться>>.',
                      reply_markup=start_markup())
 
-
 bot.polling(none_stop=True, interval=0)
+
