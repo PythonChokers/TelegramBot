@@ -3,7 +3,7 @@
 # cd ..\
 # python.exe bot.py
 
-import time
+import Analytics
 import telebotdb
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -35,17 +35,31 @@ def barber_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     temp_name = ''
+    check_master_time = False
     for barber in telebotdb.get_master():
-        barber_name = barber.name
-        if temp_name:
-            markup.add(InlineKeyboardButton(temp_name, callback_data=temp_name),
-                       InlineKeyboardButton(barber_name, callback_data=barber_name))
-            temp_name = ''
-        else:
-            temp_name = barber_name
+        if having_day(barber.id):
+            check_master_time = True
+            barber_name = barber.name
+            if temp_name:
+                markup.add(InlineKeyboardButton(temp_name, callback_data=temp_name),
+                           InlineKeyboardButton(barber_name, callback_data=barber_name))
+                temp_name = ''
+            else:
+                temp_name = barber_name
     if temp_name:
         markup.add(InlineKeyboardButton(temp_name, callback_data=temp_name))
+    if not check_master_time:
+        markup.add(InlineKeyboardButton('Извините, все мастера заняты', callback_data='havent_masters'))
     return markup
+
+
+def having_day(barber_id):
+    check = False
+    master_days = telebotdb.get_date_having_master(barber_id)
+    if len(master_days) != 0:
+        check = True
+
+    return check
 
 
 def service_markup():
@@ -85,6 +99,7 @@ def day_markup(id):
     if temp_day:
         markup.add(
             InlineKeyboardButton(day_names[temp_day - 1], callback_data=day_names[temp_day - 1]))
+
     return markup
 
 
@@ -122,6 +137,15 @@ def do_order():
     return markup
 
 
+def analytics():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton('Общая прибыль', callback_data='profit'),
+               InlineKeyboardButton('Прибыль по услугам', callback_data='service_profit'),
+               InlineKeyboardButton('Выработка мастеров', callback_data='master_profit'))
+    return markup
+
+
 order = {}
 
 barbers = {}
@@ -156,9 +180,41 @@ def callback_query(call):
                                       reply_markup=None)
     elif call.data == "cd_exit":
         pass
+    elif call.data == "profit":
+        profit = Analytics.sumcash()
+        bot.send_message(call.from_user.id, f'Общий заработок за все время: {profit} рублей.')
+    elif call.data == "service_profit":
+        service_profit = Analytics.services_impact()
+        for service, profit in service_profit.items():
+            bot.send_message(call.from_user.id, f'Услуга "{service}" принесла доход в размере {int(profit)} рублей.')
+    elif call.data == "master_profit":
+        master_profit = Analytics.masters_impact()
+        for master, profit in master_profit.items():
+            bot.send_message(call.from_user.id, f'Мастер "{master}" принес доход в размере {int(profit)} рублей.')
+    elif call.data == "havent_masters":
+        bot.send_message(call.from_user.id, 'Чтобы записаться в Barbershop, нажмите кнопку <<Записаться>>.',
+                         reply_markup=start_markup())
+        order[call.from_user.id] = {}
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
+    elif call.data == "confirm_order":
+        user_id = call.from_user.id
+        order_day = order[call.from_user.id]['День']
+        order_time = order[call.from_user.id]['Время']
+        service_id = order[call.from_user.id]['Услуга']
+        master_id = order[call.from_user.id]['Мастер']
+        order[call.from_user.id] = {}
+
+        set_order(user_id, order_day, order_time, service_id, master_id)
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
+        bot.send_photo(call.from_user.id,
+                       'https://coub-anubis-a.akamaized.net/coub_storage/coub/simple/cw_timeline_pic/4ca3f01437d/82972d4812cb9853cfc32/ios_large_1554150210_image.jpg')
+        bot.send_message(call.from_user.id, 'Ваш заказ оформлен, ждите звонка!')
+
     elif call.data == "back_to_start":
         bot.send_message(call.from_user.id, 'Чтобы записаться в Barbershop, нажмите кнопку <<Записаться>>.',
-                     reply_markup=start_markup())
+                         reply_markup=start_markup())
         order[call.from_user.id] = {}
         bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
                                       reply_markup=None)
@@ -236,23 +292,33 @@ def callback_query(call):
     print(order)
 
 
+def set_order(user_id, order_day, order_time, service_id, master_id):
+    id_time = (order_day - 1) * 26 + order_time
+    telebotdb.make_order(user_id, id_time, service_id, master_id)
+
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.send_message(message.from_user.id, 'Чтобы записаться в Barbershop, нажмите кнопку <<Записаться>>.',
                      reply_markup=start_markup())
 
 
+admins = []
+
+
 @bot.message_handler(commands=['admin'])
 def log_admin(message):
-    bot.send_message(message.from_user.id, 'Введите пароль админа!')
+    admins.append(message.from_user.id)
+    bot.send_message(message.from_user.id, 'Введите пароль админа:')
 
 
 @bot.message_handler(func=lambda m: True)
 def password(message):
-    if message.text == '12345678':
-        bot.send_message(message.from_user.id, 'Добро пожаловать, админ!')
-    else:
+    if message.text == 'Панель админа' and message.from_user.id in admins:
+        bot.send_message(message.from_user.id, 'Добро пожаловать, админ!', reply_markup=analytics())
+    elif message.from_user.id in admins:
         bot.send_message(message.from_user.id, 'Хорошая попытка, Олег))))0)0)')
+        bot.send_message(message.from_user.id, 'Введите пароль админа:')
 
 
 bot.polling(none_stop=True, interval=0)
