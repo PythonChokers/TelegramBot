@@ -134,8 +134,6 @@ for service in telebotdb.get_service():
     services[service.id] = str(service.name)
     service_price[service.id] = service.price
 
-days = {1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб', 7: 'Вс'}
-
 times = {}
 hour = 8
 for time in range(1, 26, 2):
@@ -182,9 +180,7 @@ def callback_query(call):
     elif call.data in day_names:
         bot.send_message(call.from_user.id, f'Время ({call.data}) ',
                          reply_markup=time_markup(order[call.from_user.id]['Мастер']))
-        for id, name in days.items():
-            if call.data == name:
-                order[call.from_user.id]['День'] = id
+        order[call.from_user.id]['День'] = day_names.index(call.data) + 1
         bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
                                       reply_markup=None)
     elif call.data in times.values():
@@ -194,7 +190,7 @@ def callback_query(call):
 
         master_name = barbers[order[call.from_user.id]['Мастер']]
         service_name = services[order[call.from_user.id]['Услуга']]
-        time = str(days[order[call.from_user.id]['День']]) + f' ({times[order[call.from_user.id]["Время"]]})'
+        time = str(day_names[order[call.from_user.id]['День'] - 1]) + f' ({times[order[call.from_user.id]["Время"]]})'
         price = service_price[order[call.from_user.id]['Услуга']]
 
         bot.send_message(call.from_user.id, f'''Ваш заказ: 
