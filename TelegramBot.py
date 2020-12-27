@@ -3,6 +3,8 @@
 # cd ..\
 # python.exe bot.py
 
+import time
+import telebotdb
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -25,55 +27,122 @@ def appointment_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     markup.add(InlineKeyboardButton("Мастер", callback_data="cd_master"),
-               InlineKeyboardButton("Услуга", callback_data="cd_service"),
-               InlineKeyboardButton("Время", callback_data="cd_date"))
+               InlineKeyboardButton("Услуга", callback_data="cd_service"))
     return markup
-
-
-barbers = {"Меиржан": "cd_Meirjan", "Самира": "cd_Samira", "Сергей": "cd_Sergey", "Чингиз": "cd_Chingiz",
-           "Самат": "cd_Samat"}
 
 
 def barber_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    temporary = ''
-    for barber in barbers:
-        if temporary:
-            markup.add(InlineKeyboardButton(temporary, callback_data=barbers[temporary]),
-                       InlineKeyboardButton(barber, callback_data=barbers[barber]))
-            temporary = ''
+    temp_name = ''
+    for barber in telebotdb.get_master():
+        barber_name = barber.name
+        if temp_name:
+            markup.add(InlineKeyboardButton(temp_name, callback_data=temp_name),
+                       InlineKeyboardButton(barber_name, callback_data=barber_name))
+            temp_name = ''
         else:
-            temporary = barber
-    if temporary:
-        markup.add(InlineKeyboardButton(temporary, callback_data=barbers[temporary]))
+            temp_name = barber_name
+    if temp_name:
+        markup.add(InlineKeyboardButton(temp_name, callback_data=temp_name))
     return markup
-
-
-price_services = {"Стрижка": 1000, "Моделирование": 1500, "Детская стрижка": 800, "Стрижка машинкой": 600,
-                  "Стрижка + бритье": 1500, "Коррекция бороды": 900, "Стрижка Папы и Сына": 1000}
-services = {"Стрижка": "cd_haircut", "Моделирование": "cd_model", "Детская стрижка": "cd_kids_haircut",
-            "Стрижка машинкой": "cd_machine", "Стрижка + бритье": "cd_Haircut_shaving", "Коррекция бороды": "cd_beard",
-            "Стрижка Папы и Сына": "cd_Dad_Son"}
 
 
 def service_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    temporary = ''
-    for service in services:
-        if temporary:
-            markup.add(InlineKeyboardButton(temporary, callback_data=services[temporary]),
-                       InlineKeyboardButton(service, callback_data=services[service]))
-            temporary = ''
+    temp_serv = ''
+    for service in telebotdb.get_service():
+        service_name = service.name
+        if temp_serv:
+            markup.add(InlineKeyboardButton(temp_serv, callback_data=temp_serv),
+                       InlineKeyboardButton(service_name, callback_data=service_name))
+            temp_serv = ''
         else:
-            temporary = service
-    if temporary:
-        markup.add(InlineKeyboardButton(temporary, callback_data=services[temporary]))
+            temp_serv = service_name
+    if temp_serv:
+        markup.add(InlineKeyboardButton(temp_serv, callback_data=temp_serv))
+    return markup
+
+
+day_names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+
+def day_markup(id):
+    days = telebotdb.get_date_having_master(id)
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    temp_day = ''
+    for day in days:
+        day_num = int(day.day)
+        if temp_day and temp_day != day_num:
+            markup.add(InlineKeyboardButton(day_names[temp_day - 1],
+                                            callback_data=day_names[temp_day - 1]),
+                       InlineKeyboardButton(day_names[day_num - 1], callback_data=day_names[day_num - 1]))
+            temp_day = ''
+        else:
+            temp_day = day_num
+    if temp_day:
+        markup.add(
+            InlineKeyboardButton(day_names[temp_day - 1], callback_data=day_names[temp_day - 1]))
+    return markup
+
+
+def time_markup(id):
+    days = telebotdb.get_date_having_master(id)
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    temporary_hour = ''
+    for day in days:
+        hour = str(day.hour)
+        mins = str(day.mins)
+        if temporary_hour:
+            markup.add(
+                InlineKeyboardButton(temporary_hour + ' : ' + ("00" if temporary_mins == '0' else temporary_mins),
+                                     callback_data=temporary_hour + ' : ' + (
+                                         "00" if temporary_mins == '0' else temporary_mins)),
+                InlineKeyboardButton(hour + ' : ' + mins,
+                                     callback_data=hour + ' : ' + mins))
+            temporary_hour = ''
+        else:
+            temporary_hour = hour
+            temporary_mins = mins
+    if temporary_hour:
+        markup.add(
+            InlineKeyboardButton(temporary_hour + ' : ' + ("00" if temporary_mins == '0' else temporary_mins),
+                                 callback_data=temporary_hour + ' : ' + (
+                                     "00" if temporary_mins == '0' else temporary_mins)))
+    return markup
+
+
+def do_order():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton('Подтвердить заказ', callback_data='confirm_order'),
+               InlineKeyboardButton('Вернуться к началу', callback_data='back_to_start'))
     return markup
 
 
 order = {}
+
+barbers = {}
+for barber in telebotdb.get_master():
+    barbers[barber.id] = str(barber.name)
+
+services = {}
+service_price = {}
+for service in telebotdb.get_service():
+    services[service.id] = str(service.name)
+    service_price[service.id] = service.price
+
+days = {1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб', 7: 'Вс'}
+
+times = {}
+hour = 8
+for time in range(1, 26, 2):
+    times[time] = str(hour) + ' : 00'
+    times[time + 1] = str(hour) + ' : 30'
+    hour += 1
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
@@ -89,10 +158,17 @@ def callback_query(call):
                                       reply_markup=None)
     elif call.data == "cd_exit":
         pass
+    elif call.data == "back_to_start":
+        bot.send_message(call.from_user.id, 'Чтобы записаться в Barbershop, нажмите кнопку <<Записаться>>.',
+                     reply_markup=start_markup())
+        order[call.from_user.id] = {}
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
     elif call.data == "cd_price":
-        pass
+        for service in telebotdb.get_service():
+            bot.send_message(call.from_user.id, str(service.name) + ' - ' + str(service.price) + ' рублей')
     elif call.data == "cd_call":
-        pass
+        bot.send_message(call.from_user.id, '88005553535')
     elif call.data == "cd_master":
         bot.send_message(call.from_user.id, 'Barber:',
                          reply_markup=barber_markup())
@@ -103,32 +179,64 @@ def callback_query(call):
                          reply_markup=service_markup())
         bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
                                       reply_markup=None)
-    elif call.data == "cd_date":
-        pass
+    elif call.data in day_names:
+        bot.send_message(call.from_user.id, f'Время ({call.data}) ',
+                         reply_markup=time_markup(order[call.from_user.id]['Мастер']))
+        for id, name in days.items():
+            if call.data == name:
+                order[call.from_user.id]['День'] = id
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
+    elif call.data in times.values():
+        for id, name in times.items():
+            if call.data == name:
+                order[call.from_user.id]['Время'] = id
+
+        master_name = barbers[order[call.from_user.id]['Мастер']]
+        service_name = services[order[call.from_user.id]['Услуга']]
+        time = str(days[order[call.from_user.id]['День']]) + f' ({times[order[call.from_user.id]["Время"]]})'
+        price = service_price[order[call.from_user.id]['Услуга']]
+
+        bot.send_message(call.from_user.id, f'''Ваш заказ: 
+Мастер - {master_name}
+Услуга - {service_name}
+Время - {time}
+Цена - {price}
+''', reply_markup=do_order())
+
+        bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
+                                      reply_markup=None)
     elif call.data in barbers.values():
-        barber_name = ''
-        for name, id in barbers.items():
-            if call.data in id:
-                barber_name = name
-        if not order[call.from_user.id].get('Услуга'):
-            bot.send_message(call.from_user.id, f'Услуги ({barber_name})',
-                             reply_markup=service_markup())
         order[call.from_user.id].setdefault('Мастер')
-        order[call.from_user.id]['Мастер'] = call.data
+        service_field = order[call.from_user.id].get('Услуга')
+        id_m = ''
+        for id, name in barbers.items():
+            if name == call.data:
+                order[call.from_user.id]['Мастер'] = id
+                id_m = id
         bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
                                       reply_markup=None)
+        if not service_field:
+            bot.send_message(call.from_user.id, f'Услуги ({call.data})',
+                             reply_markup=service_markup())
+        else:
+            bot.send_message(call.from_user.id, 'День',
+                             reply_markup=day_markup(id_m))
     elif call.data in services.values():
-        service_name = ''
-        for name, id in services.items():
-            if call.data in id:
-                service_name = name
         order[call.from_user.id].setdefault('Услуга')
-        order[call.from_user.id]['Услуга'] = call.data
+        master_field = order[call.from_user.id].get('Мастер')
+        for id, name in services.items():
+            if call.data == name:
+                order[call.from_user.id]['Услуга'] = id
         bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
                                       reply_markup=None)
-        if not order[call.from_user.id].get('Мастер'):
+        if not master_field:
             bot.send_message(call.from_user.id, 'Barber:',
                              reply_markup=barber_markup())
+        else:
+            bot.send_message(call.from_user.id, 'День',
+                             reply_markup=day_markup(order[call.from_user.id]['Мастер']))
+
     print(order)
 
 
@@ -137,5 +245,18 @@ def send_welcome(message):
     bot.send_message(message.from_user.id, 'Чтобы записаться в Barbershop, нажмите кнопку <<Записаться>>.',
                      reply_markup=start_markup())
 
-bot.polling(none_stop=True, interval=0)
 
+@bot.message_handler(commands=['admin'])
+def log_admin(message):
+    bot.send_message(message.from_user.id, 'Введите пароль админа!')
+
+
+@bot.message_handler(func=lambda m: True)
+def password(message):
+    if message.text == '12345678':
+        bot.send_message(message.from_user.id, 'Добро пожаловать, админ!')
+    else:
+        bot.send_message(message.from_user.id, 'Хорошая попытка, Олег))))0)0)')
+
+
+bot.polling(none_stop=True, interval=0)
