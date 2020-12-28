@@ -355,7 +355,7 @@ def callback_query(call):
 Мастер - {master_name}
 Услуга - {service_name}
 Время - {time}
-Цена - {price}
+Цена - {int(float(price))} рублей
 ''', reply_markup=do_order())
 
         bot.edit_message_reply_markup(chat_id=call.from_user.id, message_id=call.message.message_id,
